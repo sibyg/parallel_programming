@@ -59,6 +59,27 @@ sealed trait Conc[+T] {
       ???
     }
   }
+
+  var xs: Conc[T] = Empty
+
+  def +=(elem: T) {
+    xs = xs <> Single(elem)
+  }
+}
+
+/**
+  * same as class <> but with no invariants
+  *
+  * @param left
+  * @param right
+  * @tparam T
+  */
+case class Append[T](left: Conc[T], right: Conc[T]) extends Conc[T] {
+  override def level: Int = 1 + math.max(left.level, right.level)
+
+  override def size: Int = left.size + right.size
+
+  def appendLeaf[T](xs: Conc[T], y: T): Conc[T] = Append(xs, Single(y))
 }
 
 /**
@@ -76,7 +97,7 @@ case class <>[T](left: Conc[T], right: Conc[T]) extends Conc[T] {
 
 }
 
-case class Leaf[T](elem: T) extends Conc[T] {
+case class Single[T](elem: T) extends Conc[T] {
   override def level: Int = 0
 
   override def size: Int = 1
