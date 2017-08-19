@@ -10,6 +10,12 @@ trait Builder[T, Repr] {
   def result: Repr
 }
 
+/**
+  * parallel transformer operation
+  *
+  * @tparam T
+  * @tparam Repr
+  */
 trait Combiner[T, Repr] extends Builder[T, Repr] {
   def combine(that: Combiner[T, Repr]): Combiner[T, Repr]
 }
