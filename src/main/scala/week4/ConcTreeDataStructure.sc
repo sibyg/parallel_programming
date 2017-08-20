@@ -1,4 +1,5 @@
-
+import scala.annotation.tailrec
+import scala.reflect.ClassTag
 
 //sealed trait Tree[+T]
 //
@@ -79,7 +80,25 @@ case class Append[T](left: Conc[T], right: Conc[T]) extends Conc[T] {
 
   override def size: Int = left.size + right.size
 
-  def appendLeaf[T](xs: Conc[T], y: T): Conc[T] = Append(xs, Single(y))
+  def appendLeaf[T](xs: Conc[T], ys: T): Conc[T] = xs match {
+    case Empty => xs
+    case xs: Single[T] = new <> (xs, ys)
+    case _ <> _ => new Append(xs, ys)
+    case xs: Append[T] => append(xs, ys)
+  }
+
+  @tailrec
+  private def append[T](xs: Append[T], ys: Conc[T]): Conc[T] = {
+    if (xs.right.level > ys.level) new Append(xs, ys)
+    else {
+      val zs = new <>(xs.right, ys)
+      xs.left match {
+        case ws@Append(_, _) => append(ws, zs)
+        case ws if ws.level <= zs.level => ws <> zs
+        case ws => new Append(ws, zs)
+      }
+    }
+  }
 }
 
 /**
@@ -116,3 +135,39 @@ case object Empty extends Conc[Nothing] {
 
   override def right: Conc[Nothing] = throw new Error("right on Empty")
 }
+
+class ConcBuffer[T: ClassTag](val k: Int, private var conc: Conc[T]) {
+  private var chunk: Array[T] = new Array(k)
+  private var chunkSize: Int = 0
+
+  def expand() = {
+    conc = appendLeaf(conc, new Chunk(chunk, chunkSize))
+    chunk = new Array(k)
+    chunkSize = 0
+  }
+
+  final def +=(elem: T): Unit = {
+    if (chunkSize >= k) expand()
+    chunk(chunkSize) = elem
+    chunkSize += 1
+  }
+
+  final def combine(that: ConcBuffer[T]): ConcBuffer[T] = {
+    val combinedConc = this.result <> that.result
+    new ConcBuffer(k, combinedConc)
+  }
+
+  def result: Conc[T] = {
+    conc = appendLeaf(conc, new Chunk(chunk, chunkSize))
+    conc
+  }
+}
+
+class Chunk[T](val array: Array[T], val size: Int) extends Conc[T] {
+  def level = 0
+
+  override def left = ???
+
+  override def right = ???
+}
+
